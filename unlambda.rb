@@ -453,10 +453,10 @@ module Unlambda
 	# > a, b, c = gen_procfakes(3)
 	# > S.(a).(b).(c)
 	# a(c)
-  # b(c)
-  # a(c)(b(c))
-  # => a(c)(b(c))
-  # みたいになってとても便利ですね
+	# b(c)
+	# a(c)(b(c))
+	# => a(c)(b(c))
+	# みたいになってとても便利ですね
 	def gen_procfakes(num)
 		s = "a"
 		l = []
