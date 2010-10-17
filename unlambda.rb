@@ -305,7 +305,7 @@ module Unlambda
 		end
 		
 		def match(node, pattern)
-			NodePattern.new(pattern).match(node)
+			NodePatternMatcher.new(pattern).match(node)
 		end
 	end
 	
@@ -332,20 +332,22 @@ module Unlambda
 		end
 	end
 	
-	class NodePattern
+	class NodePatternMatcher
 		def initialize(str)
 			@pattern = PatternParser.new(str).parse()
+			@result = {}
+			@arg_name_stack = ArgNameStack.new
+			@pattern_arg_name_stack = ArgNameStack.new
 		end
 		
 		def match(node)
-			result = {}
-			matched = match0(result, node, @pattern)
-			matched ? result : nil
+			matched = match0(node, @pattern)
+			matched ? @result : nil
 		end
 		
-		def match0(result, node, pattern_node)
+		def match0(node, pattern_node)
 			label, pattern_node = get_label(pattern_node)
-			result[label] = node if label
+			@result[label] = node if label
 			if pattern_node.node_type == :pattern_all
 				return true
 			end
@@ -356,13 +358,20 @@ module Unlambda
 			when :primary
 				node.name == pattern_node.name
 			when :call
-				match0(result, node.func, pattern_node.func) and
-				match0(result, node.arg, pattern_node.arg)
+				match0(node.func, pattern_node.func) and
+				match0(node.arg, pattern_node.arg)
 			when :lambda
-				match0(result, node.body, pattern_node.body)
+				@arg_name_stack.push(node)
+				@pattern_arg_name_stack.push(pattern_node)
+				r = match0(node.body, pattern_node.body)
+				@arg_name_stack.pop()
+				@pattern_arg_name_stack.pop()
+				r
 			when :arg
-				# 未実装: 名前で比較するのではなく何段階上の関数の引数かで比較する必要がある
-				raise "unsupported node type: #{node.node_type}"
+				# 何段階上の関数の引数かで比較する
+				level1 = @arg_name_stack.get_level(node.name)
+				level2 = @pattern_arg_name_stack.get_level(pattern_node.name)
+				level1 == level2
 			else
 				raise "unsupported node type: #{node.node_type}"
 			end
@@ -374,6 +383,27 @@ module Unlambda
 			else
 				[nil, node]
 			end
+		end
+	end
+	
+	class ArgNameStack
+		def initialize
+			@stack = []
+		end
+		
+		def push(func_node)
+			@stack.push(func_node.arg_name)
+		end
+		
+		def pop
+			@stack.pop
+		end
+		
+		def get_level(name)
+			@stack.reverse_each.with_index do |n, i|
+				return i if n == name
+			end
+			nil
 		end
 	end
 
