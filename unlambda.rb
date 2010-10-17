@@ -195,16 +195,28 @@ module Unlambda
 		end
 		
 		def optimize_node(orig_node)
-			case orig_node.node_type
-			when :primary, :arg
-				node = orig_node.dup
-			when :call
-				node = CallNode.new(optimize_node(orig_node.func), optimize_node(orig_node.arg))
-			when :lambda
-				node = LambdaNode.new(orig_node.arg_name, optimize_node(orig_node.body))
-			else
-				raise "unsupported node: #{node.node_type}"
+			node = orig_node
+			while true
+				case node.node_type
+				when :primary, :arg
+					node = node.dup
+				when :call
+					node = CallNode.new(optimize_node(node.func), optimize_node(node.arg))
+				when :lambda
+					node = LambdaNode.new(node.arg_name, optimize_node(node.body))
+				else
+					raise "unsupported node: #{node.node_type}"
+				end
+				
+				node, action = optimize_node0(node)
+				if action == :break
+					break
+				end
 			end
+			node
+		end
+		
+		def optimize_node0(node)
 			while true
 				if m = match(node, "i(x:*)")
 					node = m[:x]
@@ -221,18 +233,16 @@ module Unlambda
 					 CallNode.new(
 					  CallNode.new(m[:x], ArgNode.new(name)),
 					  CallNode.new(m[:y], ArgNode.new(name))))
-					node = optimize_node(node)
-					break
+					return [node, :redo]
 				end
 				if m = match(node, "(func:->a{*})(arg:*)") and pure?(m[:arg])
 					node = replace_arg(m[:func].arg_name, m[:func].body, m[:arg])
-					node = optimize_node(node)
-					break
+					return [node, :redo]
 				end
 				# どの最適化にもマッチしなければループ終了
 				break
 			end
-			node
+			return [node, :break]
 		end
 		
 		def replace_arg(arg_name, root, arg_value_node)
