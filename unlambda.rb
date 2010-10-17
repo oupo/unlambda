@@ -235,7 +235,8 @@ module Unlambda
 					  CallNode.new(m[:y], ArgNode.new(name))))
 					return [node, :redo]
 				end
-				if m = match(node, "(func:->a{*})(arg:*)") and pure?(m[:arg])
+				if m = match(node, "(func:->a{*})(arg:*)") and
+				   pure?(m[:arg]) and m[:arg].node_type != :lambda
 					node = replace_arg(m[:func].arg_name, m[:func].body, m[:arg])
 					return [node, :redo]
 				end
